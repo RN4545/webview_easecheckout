@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--    <base href="/">-->
+    <meta charset="UTF-8">
+    <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+    <meta name="description" content="A Flutter Web application">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+
+    <!-- iOS meta tags & icons -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Flutter Web">
+
+    <title>Flutter Web</title>
+
+    <script>
+        // The value below is injected by flutter build, do not touch.
+        const serviceWorkerVersion = "2713317196";
+    </script>
+    <!-- Send msg to the flutter host app -->
+    <script>
+        // Function to send data to the Flutter host app
+        function sendDataToFlutterHost(data) {
+          if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler('onTxnResponse', data);
+          } else {
+            console.error('Flutter InAppWebView is not available.');
+          }
+        }
+    </script>
+    <!-- Define the function globally -->
+    <script>
+        // Explicitly assign function to window object
+        window.receiveFlutterData = function(data) {
+            console.log("📥 Received Data in paymentsdk web:", JSON.stringify(data));
+            try {
+                let parsedData = typeof data === "string" ? JSON.parse(data) : data;
+                console.log("✅ Parsed Data:", JSON.stringify(parsedData));
+
+                // Send to Flutter WebView if available
+                if (window.flutter_inappwebview) {
+                    window.flutter_inappwebview.callHandler("receiveDataFromWeb", parsedData);
+                }
+
+                // Also send data to PWA or other web listeners
+                if (window && window.parent) {
+                    window.parent.postMessage({ type: "flutterData", data: parsedData }, "*");
+                }
+
+                return true; // Return value to confirm reception
+            } catch (e) {
+                console.error("❌ JSON Parsing Error:", e);
+                return false;
+            }
+        };
+
+        // Listener to receive messages in PWA or other web pages
+        window.addEventListener("message", (event) => {
+            if (event.data && event.data.type === "flutterData") {
+                console.log("📡 Data received in PWA:", event.data.data);
+            }
+        });
+
+        // Log to verify the function is defined
+        console.log("Function definition status:", typeof window.receiveFlutterData === 'function' ? "Defined" : "Not defined");
+    </script>
+
+
+    <!-- Add message event listener as fallback communication channel -->
+    <script>
+        window.addEventListener('message', function(event) {
+            console.log("📥 Received Data via postMessage:", event.data);
+            try {
+                let parsedData = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+                console.log("Parsed Data from postMessage:", JSON.stringify(parsedData));
+
+                // Process the data the same way as the main function would
+                // You can call other functions or trigger UI updates here
+            } catch (e) {
+                console.error("JSON Parsing Error in message listener:", e);
+            }
+        });
+    </script>
+    <!---this is send the transaction status to the host app--->
+    <script>
+        function receiveTransactionStatusFromFlutter(data) {
+            console.log("📢 Received transaction status from Flutter Web:", data);
+
+            try {
+                // ✅ Parse the JSON data
+                let jsonData = JSON.parse(data);
+
+                // ✅ Check if it's a transaction status update
+                if (jsonData.type === "transactionStatus") {
+                    console.log("✅ Transaction Status Update:", jsonData);
+
+                    // ✅ Send status update to the host app
+                    if (window.flutter_inappwebview) {
+                        window.flutter_inappwebview.callHandler("onPaymentStatusUpdate", jsonData);
+                    } else {
+                        console.warn("⚠️ Flutter InAppWebView not available.");
+                    }
+                }
+            } catch (error) {
+                console.error("❌ Error parsing JSON:", error);
+            }
+        }
+
+        // ✅ Debugging: Ensure Flutter Web is sending messages
+        window.addEventListener("message", function(event) {
+            console.log("📩 Message received:", event.data);
+            if (event.data && event.data.type === "transactionStatus") {
+                receiveTransactionStatusFromFlutter(JSON.stringify(event.data));
+            }
+        }, false);
+    </script>
+    <!--- rcvd which upi app not displayed from host--->
+    <script>
+        window.addEventListener("message", function(event) {
+          console.log("📩 Message received from WebView:", event.data);
+
+          if (event.data.type === "ERROR" && event.data.message === "UPI App not found") {
+<!--            alert("🚨 Error: UPI App not found. Please install it.");-->
+
+            // ✅ Send the message to Flutter Web
+            window.postMessage(JSON.stringify({
+              type: "flutterUpiAppUpdate",
+              text: "UPI App not found"
+            }), "*");
+          }
+        }, false);
+    </script>
+
+
+
+
+    <!-- This script adds the flutter initialization JS code -->
+    <script src="flutter.js" defer></script>
+</head>
+<body>
+<script>
+    window.addEventListener('load', function(ev) {
+        // Download main.dart.js
+        _flutter.loader.loadEntrypoint({
+            serviceWorker: {
+                serviceWorkerVersion: serviceWorkerVersion,
+            },
+            onEntrypointLoaded: function(engineInitializer) {
+                engineInitializer.initializeEngine().then(function(appRunner) {
+                    appRunner.runApp();
+                });
+            }
+        });
+    });
+</script>
+
+
+
+</body>
+</html>
